@@ -1,0 +1,29 @@
+#!/bin/bash
+
+SJTU="https://mirrors.sjtug.sjtu.edu.cn/guix"
+BORDEAUX="https://bordeaux.guix.gnu.org"
+
+NONGUIX_MAIN="https://gitlab.com/nonguix/nonguix"
+NONGUIX_PROXY="https://nonguix-proxy.ditigal.xyz"
+
+if curl -s --max-time 5 -I "$SJTU" >/dev/null; then
+    GUIX_MAIN_URL="$SJTU"
+elif curl -s --max-time 5 -I "$BORDEAUX" >/dev/null; then
+    GUIX_MAIN_URL="$BORDEAUX"
+else
+    GUIX_MAIN_URL="https://codeberg.org/guix/guix.git"
+fi
+
+if curl -s --max-time 5 -I "$NONGUIX_PROXY" >/dev/null; then
+    NONGUIX_URL="$NONGUIX_PROXY"
+else
+    NONGUIX_URL="$NONGUIX_MAIN"
+fi
+
+export GUIX_SUBSTITUTE_URLS="$GUIX_MAIN_URL $NONGUIX_URL"
+export GUIX_PACKAGE_CNAMED_URL="$GUIX_MAIN_URL"
+export GUIX_NONGUIX_PROXY_URL="$NONGUIX_URL"
+
+echo "Зеркала:"
+echo " - Guix: $GUIX_MAIN_URL"
+echo " - Nonguix: $NONGUIX_URL"
