@@ -251,7 +251,7 @@ while true; do
             setup_network
             install_system
             ;;
-        "r") reboot_system
+        "r") reboot_system ;;
         "q") 
             echo "Выход из инсталлятора"
             exit 0
