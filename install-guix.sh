@@ -6,6 +6,7 @@ REPO_URL="https://github.com/kosar33/eguix"
 TMP_DIR="/tmp/guix-installer"
 ROOT_MOUNT="/mnt"
 CONFIG_DIR="$TMP_DIR/configs"
+SCRIPT_DIR=$(dirname "$0")
 
 # Глобальные переменные для разделов
 EFI_PART=""
@@ -37,8 +38,7 @@ clone_repo() {
         cd "$TMP_DIR"
         git pull --ff-only
         chmod +x ${TMP_DIR}/install-guix.sh ${TMP_DIR}/configs/* ${TMP_DIR}/scripts/*
-        cp ${TMP_DIR}/install-guix.sh /tmp/
-        exec "/tmp/install-guix.sh"
+        exec "cp ${TMP_DIR}/install-guix.sh ${SCRIPT_DIR}"
     else
         git clone "$REPO_URL" "$TMP_DIR"
     fi
