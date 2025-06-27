@@ -54,6 +54,18 @@ clone_repo() {
 
 # Функция проверки зеркал
 check_mirrors() {
+    echo "### Проверка установки Curl..."
+    if ! command -v curl &> /dev/null; then
+        echo "Git не установлен. Пытаюсь установить..."
+        if command -v guix &> /dev/null; then
+            guix install curl
+        else
+            echo "Не удалось установить Curl! Установите вручную."
+            exit 1
+        fi
+        hash -r
+    fi
+    
     echo "### Проверка доступности зеркал..."
     if [ ! -f "$CONFIG_DIR/guix-env-fallback" ]; then
         echo "Ошибка: скрипт guix-env-fallback не найден!"
