@@ -17,8 +17,6 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-chmod +x "${TMP_DIR}/*"
-
 # Функция клонирования репозитория
 clone_repo() {
     echo "### Проверка установки Git..."
@@ -38,7 +36,8 @@ clone_repo() {
         echo "Обновление существующей копии..."
         cd "$TMP_DIR"
         git pull --ff-only
-        cd - >/dev/null
+        chmod +x ${TMP_DIR}/*
+        exec "${TMP_DIR}/install-guix.sh"
     else
         git clone "$REPO_URL" "$TMP_DIR"
     fi
