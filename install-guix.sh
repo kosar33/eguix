@@ -17,6 +17,8 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+chmod +x "${TMP_DIR}/*"
+
 # Функция клонирования репозитория
 clone_repo() {
     echo "### Проверка установки Git..."
