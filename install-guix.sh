@@ -6,7 +6,7 @@ REPO_URL="https://github.com/kosar33/eguix"
 TMP_DIR="/tmp/guix-installer"
 ROOT_MOUNT="/mnt"
 CONFIG_DIR="$TMP_DIR/configs"
-SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 # Глобальные переменные для разделов
 EFI_PART=""
