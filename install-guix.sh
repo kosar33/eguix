@@ -57,6 +57,7 @@ check_mirrors() {
     if ! command -v curl &> /dev/null; then
         echo "Curl не установлен. Пытаюсь установить..."
         if command -v guix &> /dev/null; then
+            guix pull --substitute-urls="https://mirrors.sjtug.sjtu.edu.cn/guix"
             guix install curl
         else
             echo "Не удалось установить Curl! Установите вручную."
