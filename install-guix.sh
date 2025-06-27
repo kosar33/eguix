@@ -55,7 +55,7 @@ clone_repo() {
 check_mirrors() {
     echo "### Проверка установки Curl..."
     if ! command -v curl &> /dev/null; then
-        echo "Git не установлен. Пытаюсь установить..."
+        echo "Curl не установлен. Пытаюсь установить..."
         if command -v guix &> /dev/null; then
             guix install curl
         else
