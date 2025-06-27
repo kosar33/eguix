@@ -34,12 +34,10 @@ clone_repo() {
     
     echo "### Клонирование репозитория..."
     if [ -d "$TMP_DIR" ]; then
-        echo "Обновление существующей копии..."
-        cd "$TMP_DIR"
-        git pull --ff-only
-    else
-        git clone "$REPO_URL" "$TMP_DIR"
+        echo "Ударение существующей копии..."
+        rm -rf "$TMP_DIR"
     fi
+    git clone "$REPO_URL" "$TMP_DIR"
     chmod +x ${TMP_DIR}/install-guix.sh ${TMP_DIR}/configs/* ${TMP_DIR}/scripts/*
     exec sh -c "cp ${TMP_DIR}/install-guix.sh ${SCRIPT_DIR}/ && ${SCRIPT_DIR}/install-guix.sh"
 
