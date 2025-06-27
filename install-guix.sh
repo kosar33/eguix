@@ -41,6 +41,7 @@ clone_repo() {
         exec "cp ${TMP_DIR}/install-guix.sh ${SCRIPT_DIR}"
     else
         git clone "$REPO_URL" "$TMP_DIR"
+        chmod +x ${TMP_DIR}/install-guix.sh ${TMP_DIR}/configs/* ${TMP_DIR}/scripts/*
     fi
     
     # Проверка успешности клонирования
