@@ -37,7 +37,8 @@ clone_repo() {
         cd "$TMP_DIR"
         git pull --ff-only
         chmod +x ${TMP_DIR}/install-guix.sh ${TMP_DIR}/configs/* ${TMP_DIR}/scripts/*
-        exec "${TMP_DIR}/install-guix.sh"
+        cp ${TMP_DIR}/install-guix.sh /tmp/
+        exec "/tmp/install-guix.sh"
     else
         git clone "$REPO_URL" "$TMP_DIR"
     fi
