@@ -1,0 +1,25 @@
+#!/bin/bash
+
+source /etc/guix/scripts/guix-env-fallback >/dev/null
+
+case $1 in
+    "install")
+        shift
+        guix install --substitute-urls="$GUIX_SUBSTITUTE_URLS" "$@"
+        ;;
+    "system")
+        shift
+        sudo -E guix system --substitute-urls="$GUIX_SUBSTITUTE_URLS" "$@"
+        ;;
+    "pull")
+        shift
+        sudo -E guix pull --substitute-urls="$GUIX_SUBSTITUTE_URLS" "$@"
+        ;;
+    "weather")
+        shift
+        guix weather --substitute-urls="$GUIX_SUBSTITUTE_URLS" "$@"
+        ;;
+    *)
+        guix "$@"
+        ;;
+esac
