@@ -11,12 +11,6 @@ CONFIG_DIR="$TMP_DIR/configs"
 EFI_PART=""
 ROOT_PART=""
 
-# Проверка root-прав
-if [ "$(id -u)" -ne 0 ]; then
-    echo "Запустите скрипт с правами root!"
-    exit 1
-fi
-
 # Функция клонирования репозитория
 clone_repo() {
     echo "### Проверка установки Git..."
