@@ -41,7 +41,7 @@ clone_repo() {
         git clone "$REPO_URL" "$TMP_DIR"
     fi
     chmod +x ${TMP_DIR}/install-guix.sh ${TMP_DIR}/configs/* ${TMP_DIR}/scripts/*
-    exec cp ${TMP_DIR}/install-guix.sh ${SCRIPT_DIR}/
+    exec sh -c "cp ${TMP_DIR}/install-guix.sh ${SCRIPT_DIR}/ && ${SCRIPT_DIR}/install-guix.sh"
 
     # Проверка успешности клонирования
     if [ ! -d "$CONFIG_DIR" ] || [ ! -f "$CONFIG_DIR/configuration.scm" ]; then
