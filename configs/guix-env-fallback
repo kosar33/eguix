@@ -6,13 +6,27 @@ VERBOSE=0
 CACHE_FILE="/tmp/guix-mirrors.cache"
 CACHE_TTL=300  # 5 минут в секундах
 
+# Функция для определения абсолютного пути
+absolute_path() {
+    local path="$1"
+    if [ -d "$path" ]; then
+        (cd "$path" && pwd)
+    elif [ -f "$path" ]; then
+        local dir
+        dir=$(dirname "$path")
+        echo "$(cd "$dir" && pwd)/$(basename "$path")"
+    else
+        echo "$path"
+    fi
+}
+
 # Функция вывода справки
 show_help() {
     echo "Использование: $0 [ПАРАМЕТРЫ]"
     echo "Автоматически определяет оптимальные зеркала для Guix на основе channels.scm"
     echo
     echo "Параметры:"
-    echo "  -c, --config FILE    Указать путь к channels.scm (по умолчанию: /etc/guix/channels.scm)"
+    echo "  -c, --config FILE    Указать путь к channels.scm (по умолчанию: $DEFAULT_CONFIG)"
     echo "  -s, --source TYPE     Указать источник данных:"
     echo "                        file - использовать локальный файл (по умолчанию)"
     echo "                        url  - загрузить из указанного URL"
@@ -204,6 +218,11 @@ main() {
     : "${SOURCE_TYPE:=file}"
     : "${USE_CACHE:=1}"
 
+    # Преобразование путей в абсолютные
+    CONFIG_FILE=$(absolute_path "$CONFIG_FILE")
+    [ -n "$SOURCE_URL" ] && SOURCE_URL=$(absolute_path "$SOURCE_URL")
+    [ -n "$GIT_REPO" ] && GIT_REPO=$(absolute_path "$GIT_REPO")
+
     # Очистка кеша при первом запуске
     [ -f "$CACHE_FILE" ] && rm -f "$CACHE_FILE"
 
@@ -226,7 +245,7 @@ main() {
         $(extract_channel_urls "$CONFIG_CONTENT" "guix.git")
     )
 
-    # Зеркала nonguix
+    # Зеркала nonguix (порядок приоритета)
     declare -a nonguix_mirrors=(
         $(extract_channel_urls "$CONFIG_CONTENT" "nonguix")
         "https://nonguix-proxy.ditigal.xyz"
@@ -236,22 +255,20 @@ main() {
     # Поиск рабочего зеркала Guix
     color_echo blue "Проверка зеркал Guix..."
     for mirror in "${guix_mirrors[@]}"; do
-        if [ -n "$mirror" ]; then
-            if check_mirror_availability "$mirror"; then
-                GUIX_MAIN_URL="$mirror"
-                break
-            fi
+        if [ -n "$mirror" ] && check_mirror_availability "$mirror"; then
+            GUIX_MAIN_URL="$mirror"
+            color_echo green "  [SELECTED] $mirror"
+            break
         fi
     done
 
     # Поиск рабочего зеркала nonguix
     color_echo blue "Проверка зеркал nonguix..."
     for mirror in "${nonguix_mirrors[@]}"; do
-        if [ -n "$mirror" ]; then
-            if check_mirror_availability "$mirror"; then
-                NONGUIX_URL="$mirror"
-                break
-            fi
+        if [ -n "$mirror" ] && check_mirror_availability "$mirror"; then
+            NONGUIX_URL="$mirror"
+            color_echo green "  [SELECTED] $mirror"
+            break
         fi
     done
 
@@ -275,9 +292,9 @@ main() {
     
     # Для использования в скриптах
     if [ "$VERBOSE" -eq 0 ]; then
-        echo "export GUIX_SUBSTITUTE_URLS=\"$GUIX_SUBSTITUTE_URLS\""
-        echo "export GUIX_PACKAGE_CNAMED_URL=\"$GUIX_PACKAGE_CNAMED_URL\""
-        echo "export GUIX_NONGUIX_PROXY_URL=\"$GUIX_NONGUIX_PROXY_URL\""
+        echo "export GUIX_SUBSTITUTE_URLS='$GUIX_SUBSTITUTE_URLS'"
+        echo "export GUIX_PACKAGE_CNAMED_URL='$GUIX_PACKAGE_CNAMED_URL'"
+        echo "export GUIX_NONGUIX_PROXY_URL='$GUIX_NONGUIX_PROXY_URL'"
     fi
 }
 
