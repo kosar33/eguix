@@ -1,12 +1,107 @@
-#!/bin/sh
+#!/bin/bash
 
-# Функция для извлечения URL из channels.scm
+# Параметры по умолчанию
+DEFAULT_CONFIG="/etc/guix/channels.scm"
+VERBOSE=0
+CACHE_FILE="/tmp/guix-mirrors.cache"
+CACHE_TTL=300  # 5 минут в секундах
+
+# Функция вывода справки
+show_help() {
+    echo "Использование: $0 [ПАРАМЕТРЫ]"
+    echo "Автоматически определяет оптимальные зеркала для Guix на основе channels.scm"
+    echo
+    echo "Параметры:"
+    echo "  -c, --config FILE    Указать путь к channels.scm (по умолчанию: /etc/guix/channels.scm)"
+    echo "  -s, --source TYPE     Указать источник данных:"
+    echo "                        file - использовать локальный файл (по умолчанию)"
+    echo "                        url  - загрузить из указанного URL"
+    echo "                        git  - использовать последнюю версию из Git"
+    echo "  -u, --url URL         URL для загрузки (требуется для --source url)"
+    echo "  -r, --repo PATH       Путь к Git-репозиторию (для --source git)"
+    echo "  -v, --verbose         Подробный вывод"
+    echo "  --no-cache            Не использовать кеш"
+    echo "  --no-color            Отключить цветной вывод"
+    echo "  -h, --help            Показать эту справку"
+    echo
+    echo "Примеры:"
+    echo "  $0 -c ~/my-channels.scm"
+    echo "  $0 --source url --url https://example.com/channels.scm"
+    echo "  $0 --source git --repo /path/to/guix/repo"
+    exit 0
+}
+
+# Функция для цветного вывода
+color_echo() {
+    if [ "$NO_COLOR" != "1" ]; then
+        local color=$1
+        shift
+        case $color in
+            red)    echo -e "\033[31m$*\033[0m" ;;
+            green)  echo -e "\033[32m$*\033[0m" ;;
+            yellow) echo -e "\033[33m$*\033[0m" ;;
+            blue)   echo -e "\033[34m$*\033[0m" ;;
+            *)      echo -e "$*" ;;
+        esac
+    else
+        shift
+        echo "$*"
+    fi
+}
+
+# Функция получения конфигурации
+get_config() {
+    local source="$1"
+    local config="$2"
+    local url="$3"
+    local repo="$4"
+    
+    case "$source" in
+        file)
+            if [ -f "$config" ]; then
+                cat "$config"
+            else
+                color_echo red "Ошибка: файл $config не найден!"
+                return 1
+            fi
+            ;;
+        url)
+            if [ -z "$url" ]; then
+                color_echo red "Ошибка: для источника 'url' требуется параметр --url"
+                return 1
+            fi
+            if [ "$VERBOSE" -eq 1 ]; then
+                color_echo blue "Загрузка конфигурации с $url"
+            fi
+            curl -sSfL "$url" || return 1
+            ;;
+        git)
+            if [ -z "$repo" ]; then
+                color_echo red "Ошибка: для источника 'git' требуется параметр --repo"
+                return 1
+            fi
+            if [ ! -d "$repo/.git" ]; then
+                color_echo red "Ошибка: $repo не является Git-репозиторием!"
+                return 1
+            fi
+            if [ "$VERBOSE" -eq 1 ]; then
+                color_echo blue "Извлечение channels.scm из Git ($repo)"
+            fi
+            git -C "$repo" show HEAD:channels.scm || return 1
+            ;;
+        *)
+            color_echo red "Неизвестный источник: $source"
+            return 1
+            ;;
+    esac
+}
+
+# Функция для извлечения URL из конфигурации
 extract_channel_urls() {
-    local config_file="$1"
+    local config="$1"
     local channel_name="$2"
     
-    # Используем awk для извлечения URL канала
-    awk -v channel="$channel_name" '
+    echo "$config" | awk -v channel="$channel_name" '
     BEGIN { in_channel = 0 }
     /\(channel/ { in_channel = 1 }
     in_channel && /\(name .'\''?/ {
@@ -21,76 +116,150 @@ extract_channel_urls() {
         }
     }
     /\)/ && in_channel { in_channel = 0 }
-    ' "$config_file"
+    '
 }
 
-# Основная функция проверки доступности
+# Функция проверки доступности зеркала
 check_mirror_availability() {
     local url="$1"
     local timeout=5
     
-    # Проверяем HTTP-доступность
-    if curl -s -I --max-time "$timeout" "$url" | grep -q "200 OK"; then
-        return 0
+    # Проверка кеша
+    if [ "$USE_CACHE" = "1" ] && [ -f "$CACHE_FILE" ]; then
+        local cache_age=$(( $(date +%s) - $(stat -c %Y "$CACHE_FILE") ))
+        if [ "$cache_age" -lt "$CACHE_TTL" ]; then
+            grep -q "^$url|available" "$CACHE_FILE" && return 0
+            grep -q "^$url|unavailable" "$CACHE_FILE" && return 1
+        fi
     fi
-    
-    # Проверяем Git-доступность (для репозиториев)
-    if [[ "$url" == *".git" ]] && 
-       git ls-remote --quiet "$url" &> /dev/null; then
-        return 0
+
+    # Проверка HTTP
+    if [[ "$url" =~ ^https?:// ]]; then
+        if curl -s -I --max-time "$timeout" "$url" | grep -q "200 OK"; then
+            [ "$VERBOSE" -eq 1 ] && color_echo green "  [OK] HTTP: $url"
+            [ "$USE_CACHE" = "1" ] && echo "$url|available" >> "$CACHE_FILE"
+            return 0
+        fi
     fi
-    
+
+    # Проверка Git
+    if [[ "$url" == *".git" ]]; then
+        if GIT_TERMINAL_PROMPT=0 git ls-remote --quiet "$url" HEAD &> /dev/null; then
+            [ "$VERBOSE" -eq 1 ] && color_echo green "  [OK] GIT: $url"
+            [ "$USE_CACHE" = "1" ] && echo "$url|available" >> "$CACHE_FILE"
+            return 0
+        fi
+    fi
+
+    [ "$VERBOSE" -eq 1 ] && color_echo yellow "  [FAIL] $url"
+    [ "$USE_CACHE" = "1" ] && echo "$url|unavailable" >> "$CACHE_FILE"
     return 1
 }
 
 # Главная функция
 main() {
-    local config_file="${1:-/etc/guix/channels.scm}"
-    
-    # Проверяем существование файла конфигурации
-    if [ ! -f "$config_file" ]; then
-        echo "Ошибка: файл $config_file не найден!" >&2
-        return 1
+    # Парсинг аргументов
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            -s|--source)
+                SOURCE_TYPE="$2"
+                shift 2
+                ;;
+            -u|--url)
+                SOURCE_URL="$2"
+                shift 2
+                ;;
+            -r|--repo)
+                GIT_REPO="$2"
+                shift 2
+                ;;
+            -v|--verbose)
+                VERBOSE=1
+                shift
+                ;;
+            --no-cache)
+                USE_CACHE=0
+                shift
+                ;;
+            --no-color)
+                NO_COLOR=1
+                shift
+                ;;
+            -h|--help)
+                show_help
+                ;;
+            *)
+                color_echo red "Неизвестный параметр: $1"
+                show_help
+                ;;
+        esac
+    done
+
+    # Установка значений по умолчанию
+    : "${CONFIG_FILE:=$DEFAULT_CONFIG}"
+    : "${SOURCE_TYPE:=file}"
+    : "${USE_CACHE:=1}"
+
+    # Очистка кеша при первом запуске
+    [ -f "$CACHE_FILE" ] && rm -f "$CACHE_FILE"
+
+    # Получение конфигурации
+    if [ "$VERBOSE" -eq 1 ]; then
+        color_echo blue "Источник данных: $SOURCE_TYPE"
+        [ -n "$SOURCE_URL" ] && color_echo blue "URL источника: $SOURCE_URL"
+        [ -n "$GIT_REPO" ] && color_echo blue "Git репозиторий: $GIT_REPO"
     fi
+
+    CONFIG_CONTENT=$(get_config "$SOURCE_TYPE" "$CONFIG_FILE" "$SOURCE_URL" "$GIT_REPO") || {
+        color_echo red "Ошибка получения конфигурации!"
+        return 1
+    }
 
     # Основные зеркала Guix (порядок приоритета)
     declare -a guix_mirrors=(
-        $(extract_channel_urls "$config_file" "sjtug")
-        $(extract_channel_urls "$config_file" "guix")
-        $(extract_channel_urls "$config_file" "guix.git")
-        "https://codeberg.org/guix/guix.git"  # Резервный
+        $(extract_channel_urls "$CONFIG_CONTENT" "sjtug")
+        $(extract_channel_urls "$CONFIG_CONTENT" "guix")
+        $(extract_channel_urls "$CONFIG_CONTENT" "guix.git")
     )
 
-    # Зеркала nonguix (порядок приоритета)
+    # Зеркала nonguix
     declare -a nonguix_mirrors=(
-        $(extract_channel_urls "$config_file" "nonguix")
+        $(extract_channel_urls "$CONFIG_CONTENT" "nonguix")
         "https://nonguix-proxy.ditigal.xyz"
         "https://gitlab.com/nonguix/nonguix"
     )
 
     # Поиск рабочего зеркала Guix
+    color_echo blue "Проверка зеркал Guix..."
     for mirror in "${guix_mirrors[@]}"; do
-        if [ -n "$mirror" ] && check_mirror_availability "$mirror"; then
-            GUIX_MAIN_URL="$mirror"
-            echo "Найдено рабочее зеркало Guix: $mirror"
-            break
+        if [ -n "$mirror" ]; then
+            if check_mirror_availability "$mirror"; then
+                GUIX_MAIN_URL="$mirror"
+                break
+            fi
         fi
     done
 
     # Поиск рабочего зеркала nonguix
+    color_echo blue "Проверка зеркал nonguix..."
     for mirror in "${nonguix_mirrors[@]}"; do
-        if [ -n "$mirror" ] && check_mirror_availability "$mirror"; then
-            NONGUIX_URL="$mirror"
-            echo "Найдено рабочее зеркало nonguix: $mirror"
-            break
+        if [ -n "$mirror" ]; then
+            if check_mirror_availability "$mirror"; then
+                NONGUIX_URL="$mirror"
+                break
+            fi
         fi
     done
 
-    # Установка значений по умолчанию, если ничего не найдено
+    # Установка значений по умолчанию
     GUIX_MAIN_URL="${GUIX_MAIN_URL:-https://codeberg.org/guix/guix.git}"
     NONGUIX_URL="${NONGUIX_URL:-https://gitlab.com/nonguix/nonguix}"
 
-    # Преобразование Git URL в Substitute URL (если необходимо)
+    # Преобразование URL
     GUIX_SUBSTITUTE_URL="${GUIX_MAIN_URL%.git}"
     NONGUIX_SUBSTITUTE_URL="${NONGUIX_URL%.git}"
 
@@ -99,10 +268,17 @@ main() {
     export GUIX_PACKAGE_CNAMED_URL="$GUIX_SUBSTITUTE_URL"
     export GUIX_NONGUIX_PROXY_URL="$NONGUIX_SUBSTITUTE_URL"
 
-    # Вывод информации
-    echo "Используемые зеркала:"
-    echo " - Guix: $GUIX_SUBSTITUTE_URL"
-    echo " - Nonguix: $NONGUIX_SUBSTITUTE_URL"
+    # Вывод результатов
+    color_echo green "Используемые зеркала:"
+    color_echo green " - Guix: $GUIX_SUBSTITUTE_URL"
+    color_echo green " - Nonguix: $NONGUIX_SUBSTITUTE_URL"
+    
+    # Для использования в скриптах
+    if [ "$VERBOSE" -eq 0 ]; then
+        echo "export GUIX_SUBSTITUTE_URLS=\"$GUIX_SUBSTITUTE_URLS\""
+        echo "export GUIX_PACKAGE_CNAMED_URL=\"$GUIX_PACKAGE_CNAMED_URL\""
+        echo "export GUIX_NONGUIX_PROXY_URL=\"$GUIX_NONGUIX_PROXY_URL\""
+    fi
 }
 
 # Запуск главной функции
