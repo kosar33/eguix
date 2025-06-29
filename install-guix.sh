@@ -84,7 +84,7 @@ check_mirrors() {
     fi
     
     # Запуск скрипта и экспорт переменных
-    source "$CONFIG_DIR/guix-env-fallback"
+    source "$CONFIG_DIR/guix-env-fallback -c ${CONFIG_DIR}/channels.scm"
     
     echo "Выбранные зеркала:"
     echo " - Guix: $GUIX_PACKAGE_CNAMED_URL"
