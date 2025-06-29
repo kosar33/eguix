@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Параметры по умолчанию
 DEFAULT_CONFIG="/etc/guix/channels.scm"
