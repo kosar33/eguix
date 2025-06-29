@@ -77,22 +77,26 @@ check_mirrors() {
         hash -r
     fi
     
-    echo "### Проверка доступности зеркал..."
+    echo "### Проверка доступности guix-env-fallback..."
     if [ ! -f "$CONFIG_DIR/guix-env-fallback" ]; then
         echo "Ошибка: скрипт guix-env-fallback не найден!"
         return 1
     fi
-    
-    # Запуск скрипта и экспорт переменных
-    source "$CONFIG_DIR/guix-env-fallback -c ${CONFIG_DIR}/channels.scm"
-    
-    echo "Выбранные зеркала:"
-    echo " - Guix: $GUIX_PACKAGE_CNAMED_URL"
-    echo " - Nonguix: $GUIX_NONGUIX_PROXY_URL"
-    
-    export GUIX_SUBSTITUTE_URLS
-    export GUIX_PACKAGE_CNAMED_URL
-    export GUIX_NONGUIX_PROXY_URL
+
+    if output=$("$CONFIG_DIR/guix-env-fallback" -c "$CONFIG_DIR/channels.scm"); then
+        eval "$output"
+        echo "Выбранные зеркала:"
+        echo " - Guix: $GUIX_PACKAGE_CNAMED_URL"
+        echo " - Nonguix: $GUIX_NONGUIX_PROXY_URL"
+
+        export GUIX_SUBSTITUTE_URLS
+        export GUIX_PACKAGE_CNAMED_URL
+        export GUIX_NONGUIX_PROXY_URL
+    else
+        echo "Ошибка при проверке зеркал:"
+        echo "$output"
+        return 1
+    fi
 }
 
 # Функция разметки диска
