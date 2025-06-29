@@ -64,6 +64,18 @@ check_mirrors() {
         fi
         hash -r
     fi
+
+    echo "### Проверка установки Git..."
+    if ! command -v git &> /dev/null; then
+        echo "Git не установлен. Пытаюсь установить..."
+        if command -v guix &> /dev/null; then
+            guix install git
+        else
+            echo "Не удалось установить Git! Установите вручную."
+            exit 1
+        fi
+        hash -r
+    fi
     
     echo "### Проверка доступности зеркал..."
     if [ ! -f "$CONFIG_DIR/guix-env-fallback" ]; then
