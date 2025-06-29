@@ -1,29 +1,109 @@
 #!/bin/sh
 
-SJTU="https://mirrors.sjtug.sjtu.edu.cn/guix"
-BORDEAUX="https://bordeaux.guix.gnu.org"
+# Функция для извлечения URL из channels.scm
+extract_channel_urls() {
+    local config_file="$1"
+    local channel_name="$2"
+    
+    # Используем awk для извлечения URL канала
+    awk -v channel="$channel_name" '
+    BEGIN { in_channel = 0 }
+    /\(channel/ { in_channel = 1 }
+    in_channel && /\(name .'\''?/ {
+        gsub(/(\047|\(name |\))/, "", $0)
+        current_name = $0
+    }
+    in_channel && /\(url / {
+        if (current_name == channel) {
+            gsub(/["\)]/, "", $NF)
+            print $NF
+            exit
+        }
+    }
+    /\)/ && in_channel { in_channel = 0 }
+    ' "$config_file"
+}
 
-NONGUIX_MAIN="https://gitlab.com/nonguix/nonguix"
-NONGUIX_PROXY="https://nonguix-proxy.ditigal.xyz"
+# Основная функция проверки доступности
+check_mirror_availability() {
+    local url="$1"
+    local timeout=5
+    
+    # Проверяем HTTP-доступность
+    if curl -s -I --max-time "$timeout" "$url" | grep -q "200 OK"; then
+        return 0
+    fi
+    
+    # Проверяем Git-доступность (для репозиториев)
+    if [[ "$url" == *".git" ]] && 
+       git ls-remote --quiet "$url" &> /dev/null; then
+        return 0
+    fi
+    
+    return 1
+}
 
-if curl -s --max-time 5 -I "$SJTU" >/dev/null; then
-    GUIX_MAIN_URL="$SJTU"
-elif curl -s --max-time 5 -I "$BORDEAUX" >/dev/null; then
-    GUIX_MAIN_URL="$BORDEAUX"
-else
-    GUIX_MAIN_URL="https://codeberg.org/guix/guix.git"
-fi
+# Главная функция
+main() {
+    local config_file="${1:-/etc/guix/channels.scm}"
+    
+    # Проверяем существование файла конфигурации
+    if [ ! -f "$config_file" ]; then
+        echo "Ошибка: файл $config_file не найден!" >&2
+        return 1
+    fi
 
-if curl -s --max-time 5 -I "$NONGUIX_PROXY" >/dev/null; then
-    NONGUIX_URL="$NONGUIX_PROXY"
-else
-    NONGUIX_URL="$NONGUIX_MAIN"
-fi
+    # Основные зеркала Guix (порядок приоритета)
+    declare -a guix_mirrors=(
+        $(extract_channel_urls "$config_file" "sjtug")
+        $(extract_channel_urls "$config_file" "guix")
+        $(extract_channel_urls "$config_file" "guix.git")
+        "https://codeberg.org/guix/guix.git"  # Резервный
+    )
 
-export GUIX_SUBSTITUTE_URLS="$GUIX_MAIN_URL $NONGUIX_URL"
-export GUIX_PACKAGE_CNAMED_URL="$GUIX_MAIN_URL"
-export GUIX_NONGUIX_PROXY_URL="$NONGUIX_URL"
+    # Зеркала nonguix (порядок приоритета)
+    declare -a nonguix_mirrors=(
+        $(extract_channel_urls "$config_file" "nonguix")
+        "https://nonguix-proxy.ditigal.xyz"
+        "https://gitlab.com/nonguix/nonguix"
+    )
 
-echo "Зеркала:"
-echo " - Guix: $GUIX_MAIN_URL"
-echo " - Nonguix: $NONGUIX_URL"
+    # Поиск рабочего зеркала Guix
+    for mirror in "${guix_mirrors[@]}"; do
+        if [ -n "$mirror" ] && check_mirror_availability "$mirror"; then
+            GUIX_MAIN_URL="$mirror"
+            echo "Найдено рабочее зеркало Guix: $mirror"
+            break
+        fi
+    done
+
+    # Поиск рабочего зеркала nonguix
+    for mirror in "${nonguix_mirrors[@]}"; do
+        if [ -n "$mirror" ] && check_mirror_availability "$mirror"; then
+            NONGUIX_URL="$mirror"
+            echo "Найдено рабочее зеркало nonguix: $mirror"
+            break
+        fi
+    done
+
+    # Установка значений по умолчанию, если ничего не найдено
+    GUIX_MAIN_URL="${GUIX_MAIN_URL:-https://codeberg.org/guix/guix.git}"
+    NONGUIX_URL="${NONGUIX_URL:-https://gitlab.com/nonguix/nonguix}"
+
+    # Преобразование Git URL в Substitute URL (если необходимо)
+    GUIX_SUBSTITUTE_URL="${GUIX_MAIN_URL%.git}"
+    NONGUIX_SUBSTITUTE_URL="${NONGUIX_URL%.git}"
+
+    # Экспорт переменных
+    export GUIX_SUBSTITUTE_URLS="$GUIX_SUBSTITUTE_URL $NONGUIX_SUBSTITUTE_URL"
+    export GUIX_PACKAGE_CNAMED_URL="$GUIX_SUBSTITUTE_URL"
+    export GUIX_NONGUIX_PROXY_URL="$NONGUIX_SUBSTITUTE_URL"
+
+    # Вывод информации
+    echo "Используемые зеркала:"
+    echo " - Guix: $GUIX_SUBSTITUTE_URL"
+    echo " - Nonguix: $NONGUIX_SUBSTITUTE_URL"
+}
+
+# Запуск главной функции
+main "$@"
