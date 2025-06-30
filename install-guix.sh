@@ -280,7 +280,7 @@ reboot_system() {
     reboot
 }
 
-if ! [ "$LC_ALL" = "ru_RU.utf8" ]; then
+if ! [ "$LANG" = "ru_RU.utf8" ]; then
     cyr_font
     export LANG="ru_RU.utf8"
 fi
