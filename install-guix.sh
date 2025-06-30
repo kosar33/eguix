@@ -15,8 +15,29 @@ ROOT_PART=""
 # Проверка root-прав
 if [ "$(id -u)" -ne 0 ]; then
     echo "Запустите скрипт с правами root!"
+    echo "Run the script with root rights!"
     exit 1
 fi
+
+# Функция установки кириллицы
+cyr-font() {
+    echo "Установка кириллического шрифта..."
+    echo "Cyrillic font installation..."
+    
+    # Поиск пути к кириллическому шрифту
+    CYR_FONT=$(find /gnu/store -path '*/share/kbd/consolefonts/*cyr*' -name '*.psf*' 2>/dev/null | head -1)
+
+    # Проверка найденного шрифта
+    if [ -z "$CYR_FONT" ]; then
+        echo "Ошибка: Кириллический шрифт не найден!" >&2
+        echo "Error: The Cyrillic font was not found!" >&2
+        exit 1
+    fi
+
+    setfont "$CYR_FONT" # Установка шрифта
+    export LANG="ru_RU.UTF-8"
+    export LC_ALL="ru_RU.UTF-8"
+}
 
 # Функция клонирования репозитория
 clone_repo() {
@@ -261,6 +282,7 @@ reboot_system() {
 }
 
 #Меню
+cyr-font
 while true; do
     echo -e "\n\n===== Guix OS Installer (РФ версия) ====="
     echo "0. Клонировать/обновить репозиторий"
