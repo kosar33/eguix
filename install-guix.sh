@@ -19,25 +19,43 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Проверка поддержки кириллицы
+check_cyrillic_support() {
+    # Анализ вывода showconsolefont
+    if command -v showconsolefont >/dev/null; then
+        if showconsolefont | grep -q -e 'А' -e 'Б' -e 'Ю'; then
+            return 0
+        fi
+    fi
+    
+    # Тест вывода кириллицы
+    test_str="П"
+    if [ "$(printf "%s" "$test_str")" = "$test_str" ]; then
+        return 0
+    fi
+    
+    return 1
+}
+
 # Функция установки кириллицы
 cyr_font() {
-    echo "### Установка кириллического шрифта..."
-    echo "### Cyrillic font installation..."
+    if ! check_cyrillic_support; then
+        echo "### Обнаружена проблема с кириллицей, пытаюсь исправить..."
+        echo "### A problem with Cyrillic was found, I'm trying to fix it..."
+        
+        # Поиск пути к кириллическому шрифту
+        CYR_FONT=$(find /gnu/store -path '*/*kbd*/share/consolefonts/*cyr*' -name '*.psf*' | head -1)
     
-    # Поиск пути к кириллическому шрифту
-    CYR_FONT=$(find /gnu/store -path '*/*kbd*/share/consolefonts/*cyr*' -name '*.psf*' | head -1)
-
-    # Проверка найденного шрифта
-    if [ -z "$CYR_FONT" ]; then
-        echo "Кириллический шрифт не найден!" >&2
-        echo "The Cyrillic font was not found!" >&2
-        echo "$CYR_FONT"
-        exit 1
+        # Проверка найденного шрифта
+        if [ -z "$CYR_FONT" ]; then
+            echo "Кириллический шрифт не найден!" >&2
+            echo "The Cyrillic font was not found!" >&2
+            echo "$CYR_FONT"
+            exit 1
+        fi
+        
+        setfont "$CYR_FONT" # Установка шрифта
     fi
-
-    setfont "$CYR_FONT" # Установка шрифта
-    export LANG="ru_RU.UTF-8"
-    export LC_ALL="ru_RU.UTF-8"
 }
 
 # Функция клонирования репозитория
