@@ -20,7 +20,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Функция установки кириллицы
-cyr-font() {
+cyr_font() {
     echo "Установка кириллического шрифта..."
     echo "Cyrillic font installation..."
     
@@ -282,7 +282,7 @@ reboot_system() {
 }
 
 #Меню
-cyr-font
+cyr_font
 while true; do
     echo -e "\n\n===== Guix OS Installer (РФ версия) ====="
     echo "0. Клонировать/обновить репозиторий"
