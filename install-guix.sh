@@ -31,6 +31,7 @@ cyr_font() {
     if [ -z "$CYR_FONT" ]; then
         echo "Ошибка: Кириллический шрифт не найден!" >&2
         echo "Error: The Cyrillic font was not found!" >&2
+        echo "$CYR_FONT"
         exit 1
     fi
 
