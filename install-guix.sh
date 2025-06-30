@@ -21,16 +21,16 @@ fi
 
 # Функция установки кириллицы
 cyr_font() {
-    echo "Установка кириллического шрифта..."
-    echo "Cyrillic font installation..."
+    echo "### Установка кириллического шрифта..."
+    echo "### Cyrillic font installation..."
     
     # Поиск пути к кириллическому шрифту
-    CYR_FONT=$(find /gnu/store -path '*/share/kbd/consolefonts/*cyr*' -name '*.psf*' 2>/dev/null | head -1)
+    CYR_FONT=$(find /gnu/store -path '*/*kbd*/share/consolefonts/*cyr*' -name '*.psf*' | head -1)
 
     # Проверка найденного шрифта
     if [ -z "$CYR_FONT" ]; then
-        echo "Ошибка: Кириллический шрифт не найден!" >&2
-        echo "Error: The Cyrillic font was not found!" >&2
+        echo "Кириллический шрифт не найден!" >&2
+        echo "The Cyrillic font was not found!" >&2
         echo "$CYR_FONT"
         exit 1
     fi
