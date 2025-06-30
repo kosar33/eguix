@@ -19,43 +19,25 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Проверка поддержки кириллицы
-check_cyrillic_support() {
-    # Анализ вывода showconsolefont
-    if command -v showconsolefont >/dev/null; then
-        if showconsolefont | grep -q -e 'А' -e 'Б' -e 'Ю'; then
-            return 0
-        fi
-    fi
-    
-    # Тест вывода кириллицы
-    test_str="П"
-    if [ "$(printf "%s" "$test_str")" = "$test_str" ]; then
-        return 0
-    fi
-    
-    return 1
-}
-
 # Функция установки кириллицы
 cyr_font() {
-    if ! check_cyrillic_support; then
-        echo "### Обнаружена проблема с кириллицей, пытаюсь исправить..."
-        echo "### A problem with Cyrillic was found, I'm trying to fix it..."
-        
-        # Поиск пути к кириллическому шрифту
-        CYR_FONT=$(find /gnu/store -path '*/*kbd*/share/consolefonts/*cyr*' -name '*.psf*' | head -1)
+    echo "### Обнаружена проблема с кириллицей, пытаюсь исправить..."
+    echo "### A problem with Cyrillic was found, I'm trying to fix it..."
     
-        # Проверка найденного шрифта
-        if [ -z "$CYR_FONT" ]; then
-            echo "Кириллический шрифт не найден!" >&2
-            echo "The Cyrillic font was not found!" >&2
-            echo "$CYR_FONT"
-            exit 1
-        fi
-        
-        setfont "$CYR_FONT" # Установка шрифта
+    # Поиск пути к кириллическому шрифту
+    CYR_FONT=$(find /gnu/store -path '*/*kbd*/share/consolefonts/*cyr*' -name '*.psf*' | head -1)
+
+    # Проверка найденного шрифта
+    if [ -z "$CYR_FONT" ]; then
+        echo "Кириллический шрифт не найден!" >&2
+        echo "The Cyrillic font was not found!" >&2
+        echo "$CYR_FONT"
+        exit 1
     fi
+    
+    setfont "$CYR_FONT" # Установка шрифта
+    export LANG="ru_RU.utf8"
+    export LC_ALL="ru_RU.utf8"
 }
 
 # Функция клонирования репозитория
@@ -300,8 +282,11 @@ reboot_system() {
     reboot
 }
 
+if ! [ "$LC_ALL" = "ru_RU.utf8" ]; then
+    cyr_font
+fi
+
 #Меню
-cyr_font
 while true; do
     echo -e "\n\n===== Guix OS Installer (РФ версия) ====="
     echo "0. Клонировать/обновить репозиторий"
