@@ -36,8 +36,6 @@ cyr_font() {
     fi
     
     setfont "$CYR_FONT" # Установка шрифта
-    export LANG="ru_RU.utf8"
-    export LC_ALL="ru_RU.utf8"
 }
 
 # Функция клонирования репозитория
@@ -284,6 +282,7 @@ reboot_system() {
 
 if ! [ "$LC_ALL" = "ru_RU.utf8" ]; then
     cyr_font
+    export LANG="ru_RU.utf8"
 fi
 
 #Меню
