@@ -20,10 +20,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Функция установки кириллицы
-cyr_font() {
-    echo "### Обнаружена проблема с кириллицей, пытаюсь исправить..."
-    echo "### A problem with Cyrillic was found, I'm trying to fix it..."
-    
+cyr_font() {  
     # Поиск пути к кириллическому шрифту
     CYR_FONT=$(find /gnu/store -path '*/*kbd*/share/consolefonts/*cyr*' -name '*.psf*' | head -1)
 
@@ -280,10 +277,7 @@ reboot_system() {
     reboot
 }
 
-if ! [ "$LANG" = "ru_RU.utf8" ]; then
-    cyr_font
-    export LANG="ru_RU.utf8"
-fi
+cyr_font
 
 #Меню
 while true; do
